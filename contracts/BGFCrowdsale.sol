@@ -82,6 +82,15 @@ contract BasicToken is ERC20Basic {
     using SafeMath for uint256;
 
     mapping (address => uint256) balances;
+    address public walletTeam = 0x35cCaeD05CE27739579502B3424364774f18980e;
+    uint256 public fundForTeam =  5*10**6 * (10 ** uint256(decimals));
+
+    uint256 public startTime = 1533081600; // 01 Aug 2018 00:00:00 GMT
+    uint256 endTime = startTime + 35 days;
+    uint256 firstRelease = endTime + 26 weeks;
+    uint256 secondRelease = firstRelease + 26 weeks;
+    uint256 thirdRelease = secondRelease + 26 weeks;
+    uint256 fourthRelease = thirdRelease + 26 weeks;
 
     /**
     * Protection against short address attack
@@ -98,6 +107,9 @@ contract BasicToken is ERC20Basic {
     */
     function transfer(address _to, uint256 _value) public onlyPayloadSize(2) returns (bool) {
         require(_to != address(0));
+        if (msg.sender == walletTeam) {
+            checkVesting(_value);
+        }
         require(_value <= balances[msg.sender]);
         require(transfersEnabled);
 
@@ -115,6 +127,23 @@ contract BasicToken is ERC20Basic {
     */
     function balanceOf(address _owner) public constant returns (uint256 balance) {
         return balances[_owner];
+    }
+
+    function checkVesting(uint256 _value) public {
+        uint256 currentTime = now;
+        require(firstRelease <= currentTime);
+        if (firstRelease <= currentTime && currentTime < secondRelease) {
+            require(balances[walletTeam].sub(_value) > fundForTeam.mul(3).div(4));
+        }
+        if (secondRelease <= currentTime && currentTime < thirdRelease) {
+            require(balances[walletTeam].sub(_value) > fundForTeam.mul(2).div(4));
+        }
+        if (thirdRelease <= currentTime && currentTime < fourthRelease) {
+            require(balances[walletTeam].sub(_value) > fundForTeam.mul(1).div(4));
+        }
+        if (fourthRelease <= currentTime) {
+            require(balances[walletTeam].sub(_value) >= 0);
+        }
     }
 
 }
@@ -236,8 +265,8 @@ contract Ownable {
  */
 
 contract MintableToken is StandardToken, Ownable {
-    string public constant name = "WhoMe";
-    string public constant symbol = "WHOM";
+    string public constant name = "BlockGain Fund Token";
+    string public constant symbol = "BGF";
     uint8 public constant decimals = 18;
 
     event Mint(address indexed to, uint256 amount);
@@ -324,22 +353,19 @@ contract BGFCrowdsale is Ownable, Crowdsale, MintableToken {
     // https://www.coingecko.com/en/coins/ethereum
     //$0.088 = 1 token => $ 1,000 = 1.5863699097355521 ETH =>
     //11,363.6363 token = 1.5863699097355521 ETH => 1 ETH = 11,363.6363/1.5863699097355521 = 7163
-    uint256 public rate  = 7163;
-    uint256[] public discount =  [125,  110, 100];
+    uint256 public rate  = 7000;
 
     mapping (address => uint256) public deposited;
     mapping(address => bool) public whitelist;
 
-    uint256 public constant INITIAL_SUPPLY = 100 * (10 ** 6) * (10 ** uint256(decimals));
-    uint256 public fundForSale = 70 * (10 ** 6) * (10 ** uint256(decimals));
-    uint256 public fundForTeam =  20 * (10 ** 6) * (10 ** uint256(decimals));
-    uint256 public fundForAirdrop =  2 * (10 ** 6) * (10 ** uint256(decimals));
-    uint256 public fundForBounty =  8 * (10 ** 6) * (10 ** uint256(decimals));
+    uint256 public constant INITIAL_SUPPLY = 166666667 * (10 ** uint256(decimals));
+    uint256 public fundForSale = 161666667 * (10 ** uint256(decimals));
 
     uint256 public countInvestor;
 
     event TokenPurchase(address indexed beneficiary, uint256 value, uint256 amount);
     event TokenLimitReached(uint256 tokenRaised, uint256 purchasedToken);
+    event MinWeiLimitReached(address sender, uint256 weiAmount);
     event Finalized();
 
     constructor(address _owner) public
@@ -385,32 +411,46 @@ contract BGFCrowdsale is Ownable, Crowdsale, MintableToken {
 
     function getTotalAmountOfTokens(uint256 _weiAmount) internal view returns (uint256) {
         uint256 currentDate = now;
-        currentDate = 1528588800; //for test's
+        currentDate = 1533513600; // (06 Aug 2018 00:00:00 GMT) for test's
         uint256 currentPeriod = getPeriod(currentDate);
         uint256 amountOfTokens = 0;
-        if(currentPeriod < 3){
+        if(currentPeriod < 5){
             if(whitelist[msg.sender]){
-                amountOfTokens = _weiAmount.mul(rate).mul(130).div(100);
-                return amountOfTokens;
+                if(currentPeriod == 0){
+                    amountOfTokens = _weiAmount.mul(rate);
+                }
+                if(currentPeriod == 1){
+                    amountOfTokens = _weiAmount.mul(rate).mul(90).div(95);
+                }
+                if(currentPeriod == 2){
+                    amountOfTokens = _weiAmount.mul(rate).mul(90).div(100);
+                }
+                if(currentPeriod == 3){
+                    amountOfTokens = _weiAmount.mul(rate).mul(90).div(105);
+                }
+                if(currentPeriod == 4){
+                    amountOfTokens = _weiAmount.mul(rate).mul(90).div(110);
+                }
             }
-            amountOfTokens = _weiAmount.mul(rate).mul(discount[currentPeriod]).div(100);
         }
         return amountOfTokens;
     }
 
     function getPeriod(uint256 _currentDate) public pure returns (uint) {
-        //1527811200 - Jun, 01, 2018 00:00:00 && 1530403199 - Jun, 30, 2018 23:59:59
-        //1530403200 - Jul, 01, 2018 00:00:00 && 1531267199 - Jul, 10, 2018 23:59:59
-        //1531267200 - Jul, 11, 2018 00:00:00 && 1533081599 - Jul, 31, 2018 23:59:59
-
-        if( 1527811200 <= _currentDate && _currentDate <= 1530403199){
+        if( startTime <= _currentDate && _currentDate <= startTime + 7 days){
             return 0;
         }
-        if( 1530403200 <= _currentDate && _currentDate <= 1531267199){
+        if( startTime + 7 days <= _currentDate && _currentDate <= startTime + 14 days){
             return 1;
         }
-        if( 1531267200 <= _currentDate && _currentDate <= 1533081599){
+        if( startTime + 14 days <= _currentDate && _currentDate <= startTime + 21 days){
             return 2;
+        }
+        if( startTime + 21 days <= _currentDate && _currentDate <= startTime + 28 days){
+            return 3;
+        }
+        if( startTime + 28 days <= _currentDate && _currentDate <= startTime + 35 days){
+            return 4;
         }
         return 10;
     }
@@ -420,10 +460,11 @@ contract BGFCrowdsale is Ownable, Crowdsale, MintableToken {
         deposited[investor] = deposited[investor].add(msg.value);
     }
 
-    function mintForOwner(address _wallet) internal returns (bool result) {
+    function mintForOwner(address _walletOwner) internal returns (bool result) {
         result = false;
-        require(_wallet != address(0));
-        balances[_wallet] = balances[_wallet].add(INITIAL_SUPPLY);
+        require(_walletOwner != address(0));
+        balances[_walletOwner] = balances[_walletOwner].add(fundForSale);
+        balances[walletTeam] = balances[walletTeam].add(fundForTeam);
         result = true;
     }
 
@@ -433,6 +474,10 @@ contract BGFCrowdsale is Ownable, Crowdsale, MintableToken {
 
     function validPurchaseTokens(uint256 _weiAmount) public inState(State.Active) returns (uint256) {
         uint256 addTokens = getTotalAmountOfTokens(_weiAmount);
+        if (_weiAmount < 0.05 ether) {
+            emit MinWeiLimitReached(msg.sender, _weiAmount);
+            return 0;
+        }
         if (tokenAllocated.add(addTokens) > fundForSale) {
             emit TokenLimitReached(tokenAllocated, addTokens);
             return 0;

@@ -3,7 +3,7 @@ var BGFCrowdsale = artifacts.require("./BGFCrowdsale.sol");
 
 contract('BGFCrowdsale', (accounts) => {
     var contract;
-    var owner = "0xBd74ffF89D7823fe5346A154C0170730aa106BE2";
+    var owner = "0xe0b6a32700c7F9495B698fda5B8E51BEb510a542";
     var rate = Number(7163*1.25);
     var buyWei = 1 * 10**18;
     var rateNew = Number(7163*1.25);
