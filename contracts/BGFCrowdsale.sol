@@ -1,4 +1,4 @@
-pragma solidity ^0.4.21;
+pragma solidity ^0.4.23;
 
 
 library SafeMath {
@@ -83,7 +83,7 @@ contract BasicToken is ERC20Basic {
 
     mapping (address => uint256) balances;
     address public walletTeam = 0x35cCaeD05CE27739579502B3424364774f18980e;
-    uint256 public fundForTeam =  5*10**6 * (10 ** uint256(decimals));
+    uint256 public fundForTeam =  5*10**6 * (10 ** 18);
 
     uint256 public startTime = 1533081600; // 01 Aug 2018 00:00:00 GMT
     uint256 endTime = startTime + 35 days;
@@ -129,7 +129,7 @@ contract BasicToken is ERC20Basic {
         return balances[_owner];
     }
 
-    function checkVesting(uint256 _value) public {
+    function checkVesting(uint256 _value) public view {
         uint256 currentTime = now;
         require(firstRelease <= currentTime);
         if (firstRelease <= currentTime && currentTime < secondRelease) {
@@ -307,8 +307,7 @@ contract MintableToken is StandardToken, Ownable {
      * Peterson's Law Protection
      * Claim tokens
      */
-    //function claimTokens(address _token) public onlyOwner {
-    function claimTokens(address _token) public {  //for test
+    function claimTokens(address _token) public onlyOwner {
         if (_token == 0x0) {
             owner.transfer(address(this).balance);
             return;
@@ -351,9 +350,9 @@ contract BGFCrowdsale is Ownable, Crowdsale, MintableToken {
     State public state;
 
     // https://www.coingecko.com/en/coins/ethereum
-    //$0.088 = 1 token => $ 1,000 = 1.5863699097355521 ETH =>
-    //11,363.6363 token = 1.5863699097355521 ETH => 1 ETH = 11,363.6363/1.5863699097355521 = 7163
-    uint256 public rate  = 7000;
+    //$0.09 = 1 token => $ 1,000 = 1.332019074513147 ETH =>
+    //11,111.11 token = 1.5863699097355521 ETH => 1 ETH = 11,111.1/1.332019074513147 = 8342
+    uint256 public rate  = 8342;
 
     mapping (address => uint256) public deposited;
     mapping(address => bool) public whitelist;
@@ -365,14 +364,16 @@ contract BGFCrowdsale is Ownable, Crowdsale, MintableToken {
 
     event TokenPurchase(address indexed beneficiary, uint256 value, uint256 amount);
     event TokenLimitReached(uint256 tokenRaised, uint256 purchasedToken);
-    event MinWeiLimitReached(address sender, uint256 weiAmount);
+    event MinWeiLimitReached(address indexed sender, uint256 weiAmount);
     event Finalized();
+    event Burn(address indexed burner, uint256 value);
 
     constructor(address _owner) public
     Crowdsale(_owner)
     {
         require(_owner != address(0));
         owner = _owner;
+        owner = msg.sender; // for test's
         transfersEnabled = true;
         mintingFinished = false;
         state = State.Active;
@@ -436,7 +437,7 @@ contract BGFCrowdsale is Ownable, Crowdsale, MintableToken {
         return amountOfTokens;
     }
 
-    function getPeriod(uint256 _currentDate) public pure returns (uint) {
+    function getPeriod(uint256 _currentDate) public view returns (uint) {
         if( startTime <= _currentDate && _currentDate <= startTime + 7 days){
             return 0;
         }
@@ -526,5 +527,22 @@ contract BGFCrowdsale is Ownable, Crowdsale, MintableToken {
     function removeFromWhitelist(address _beneficiary) external onlyOwner {
         whitelist[_beneficiary] = false;
     }
+
+    /**
+     * @dev owner burn Token.
+     * @param _value amount of burnt tokens
+     */
+    function ownerBurnToken(uint _value) public onlyOwner {
+        require(_value > 0);
+        require(_value <= balances[owner]);
+        require(_value <= totalSupply);
+        require(_value <= fundForSale);
+
+        balances[owner] = balances[owner].sub(_value);
+        totalSupply = totalSupply.sub(_value);
+        fundForSale = fundForSale.sub(_value);
+        emit Burn(msg.sender, _value);
+    }
+
 }
 
