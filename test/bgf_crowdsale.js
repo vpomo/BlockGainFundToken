@@ -1,6 +1,7 @@
 var BGFCrowdsale = artifacts.require("./BGFCrowdsale.sol");
 //import assertRevert from './helpers/assertRevert';
 
+
 contract('BGFCrowdsale', (accounts) => {
     var contract;
     //var owner = "0xe0b6a32700c7F9495B698fda5B8E51BEb510a542";
@@ -143,6 +144,18 @@ contract('BGFCrowdsale', (accounts) => {
         await contract.ownerBurnToken(1*10**18);
         var balanceOwnerAfter = await contract.balanceOf(owner);
         assert.equal(true, balanceOwnerBefore > balanceOwnerAfter);
+    });
+
+    it('verification vesting', async ()  => {
+        //await assertRevert(contract.checkVesting(1*10**18, 1553385600)); //24 Mar 2019 00:00:00 GMT
+        var period = await contract.checkVesting(5000*10**18, 1553385600); //24 Mar 2019 00:00:00 GMT
+        assert.equal(1, period);
+        //console.log("period = " + period);
+
+        var period = await contract.checkVesting(5000*10**18, 1569283200); //24 Sep 2019 00:00:00 GMT
+        assert.equal(2, period);
+        //console.log("period = " + period);
+        var period = await contract.checkVesting(5e23, 1569283200); //24 Sep 2019 00:00:00 GMT
     });
 
 });

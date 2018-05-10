@@ -108,7 +108,7 @@ contract BasicToken is ERC20Basic {
     function transfer(address _to, uint256 _value) public onlyPayloadSize(2) returns (bool) {
         require(_to != address(0));
         if (msg.sender == walletTeam) {
-            checkVesting(_value);
+            checkVesting(_value, now);
         }
         require(_value <= balances[msg.sender]);
         require(transfersEnabled);
@@ -129,19 +129,22 @@ contract BasicToken is ERC20Basic {
         return balances[_owner];
     }
 
-    function checkVesting(uint256 _value) public view {
-        uint256 currentTime = now;
-        require(firstRelease <= currentTime);
-        if (firstRelease <= currentTime && currentTime < secondRelease) {
+    function checkVesting(uint256 _value, uint256 _currentTime) public view returns(uint8 period) {
+        require(firstRelease <= _currentTime);
+        if (firstRelease <= _currentTime && _currentTime < secondRelease) {
+            period = 1;
             require(balances[walletTeam].sub(_value) > fundForTeam.mul(3).div(4));
         }
-        if (secondRelease <= currentTime && currentTime < thirdRelease) {
+        if (secondRelease <= _currentTime && _currentTime < thirdRelease) {
+            period = 2;
             require(balances[walletTeam].sub(_value) > fundForTeam.mul(2).div(4));
         }
-        if (thirdRelease <= currentTime && currentTime < fourthRelease) {
+        if (thirdRelease <= _currentTime && _currentTime < fourthRelease) {
+            period = 3;
             require(balances[walletTeam].sub(_value) > fundForTeam.mul(1).div(4));
         }
-        if (fourthRelease <= currentTime) {
+        if (fourthRelease <= _currentTime) {
+            period = 4;
             require(balances[walletTeam].sub(_value) >= 0);
         }
     }
@@ -373,7 +376,7 @@ contract BGFCrowdsale is Ownable, Crowdsale, MintableToken {
     {
         require(_owner != address(0));
         owner = _owner;
-        owner = msg.sender; // for test's
+        //owner = msg.sender; // for test's
         transfersEnabled = true;
         mintingFinished = false;
         state = State.Active;
@@ -412,7 +415,7 @@ contract BGFCrowdsale is Ownable, Crowdsale, MintableToken {
 
     function getTotalAmountOfTokens(uint256 _weiAmount) internal view returns (uint256) {
         uint256 currentDate = now;
-        currentDate = 1533513600; // (06 Aug 2018 00:00:00 GMT) for test's
+        //currentDate = 1533513600; // (06 Aug 2018 00:00:00 GMT) for test's
         uint256 currentPeriod = getPeriod(currentDate);
         uint256 amountOfTokens = 0;
         if(currentPeriod < 5){
